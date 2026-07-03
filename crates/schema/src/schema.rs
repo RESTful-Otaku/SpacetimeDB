@@ -983,7 +983,10 @@ impl Schema for TableSchema {
     }
 
     fn check_compatible(&self, module_def: &ModuleDef, def: &Self::Def) -> Result<(), anyhow::Error> {
-        ensure_eq!(&self.table_name[..], &def.name[..], "Table name mismatch");
+        // Submodule tables are stored in the DB with a namespace prefix (e.g. "lib.library_table"),
+        // but the def's name is just the local name ("library_table"). Strip any prefix before comparing.
+        let self_local_name = self.table_name.rsplit('.').next().unwrap_or(&self.table_name[..]);
+        ensure_eq!(self_local_name, &def.name[..], "Table name mismatch");
         ensure_eq!(self.primary_key, def.primary_key, "Primary key mismatch");
         let def_table_access: StAccess = (def.table_access).into();
         ensure_eq!(self.table_access, def_table_access, "Table access mismatch");
@@ -999,10 +1002,15 @@ impl Schema for TableSchema {
         }
         ensure_eq!(self.columns.len(), def.columns.len(), "Column count mismatch");
 
+        // Index names in the DB are prefixed for submodule tables (e.g. "lib.library_table_id_idx_btree"),
+        // but def.indexes is keyed by the bare name. Derive the namespace prefix length from the
+        // difference between the full DB table name and the def's canonical (local) table name.
+        let ns_prefix_len = self.table_name.len() - def.name.len();
         for index in &self.indexes {
+            let bare_name = &index.index_name[ns_prefix_len..];
             let index_def = def
                 .indexes
-                .get(&index.index_name)
+                .get(bare_name)
                 .ok_or_else(|| anyhow::anyhow!("Index {} not found in definition", index.index_id.0))?;
             index.check_compatible(module_def, index_def)?;
         }
@@ -1352,8 +1360,11 @@ impl Schema for ScheduleSchema {
 
     fn check_compatible(&self, _module_def: &ModuleDef, def: &Self::Def) -> Result<(), anyhow::Error> {
         ensure_eq!(&self.schedule_name[..], &def.name[..], "Schedule name mismatch");
+        // For submodule tables, schedule function names in the DB are namespace-prefixed using '.'
+        // (e.g. "lib.library_scheduled_procedure") while def.function_name is the bare name.
+        let ns_len = self.function_name.len().saturating_sub(def.function_name.len());
         ensure_eq!(
-            &self.function_name[..],
+            &self.function_name[ns_len..],
             &def.function_name[..],
             "Schedule function name mismatch"
         );
@@ -1421,7 +1432,11 @@ impl Schema for IndexSchema {
     }
 
     fn check_compatible(&self, _module_def: &ModuleDef, def: &Self::Def) -> Result<(), anyhow::Error> {
-        ensure_eq!(&self.index_name[..], &def.name[..], "Index name mismatch");
+        // For submodule tables, the DB stores index names with a namespace prefix
+        // (e.g. "lib.library_table_id_idx_btree") while def.name is the bare name.
+        // Strip any prefix by comparing only the suffix of length def.name.len().
+        let ns_len = self.index_name.len().saturating_sub(def.name.len());
+        ensure_eq!(&self.index_name[ns_len..], &def.name[..], "Index name mismatch");
         ensure_eq!(&self.index_algorithm, &def.algorithm, "Index algorithm mismatch");
         Ok(())
     }
