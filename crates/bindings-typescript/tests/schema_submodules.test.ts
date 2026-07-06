@@ -8,8 +8,6 @@ vi.mock(
   { virtual: true }
 );
 
-vi.mock('spacetime:sys@2.1', () => ({}), { virtual: true });
-
 vi.mock('../src/server/runtime', () => ({
   makeHooks: () => ({}),
   callProcedure: () => new Uint8Array(),

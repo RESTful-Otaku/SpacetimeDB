@@ -32,71 +32,71 @@ fn format_step<F: MigrationFormatter>(
 ) -> Result<(), FormattingErrors> {
     match step {
         AutoMigrateStep::AddView(view) => {
-            let view_info = extract_view_info(&**view, plan.new)?;
+            let view_info = extract_view_info(view, plan.new)?;
             f.format_view(&view_info, Action::Created)
         }
         AutoMigrateStep::RemoveView(view) => {
-            let view_info = extract_view_info(&**view, plan.old)?;
+            let view_info = extract_view_info(view, plan.old)?;
             f.format_view(&view_info, Action::Removed)
         }
         // This means the body of the view may have been updated.
         // So we must recompute it and send any updates to clients.
         // No need to include this step in the formatted plan.
         AutoMigrateStep::UpdateView(_) => Ok(()),
-        AutoMigrateStep::RemoveTable(t) => f.format_remove_table(&**t),
+        AutoMigrateStep::RemoveTable(t) => f.format_remove_table(t),
         AutoMigrateStep::AddTable(t) => {
-            let table_info = extract_table_info(&**t, plan)?;
+            let table_info = extract_table_info(t, plan)?;
             f.format_add_table(&table_info)
         }
         AutoMigrateStep::AddIndex(index) => {
-            let index_info = extract_index_info(&**index, plan.new)?;
+            let index_info = extract_index_info(index, plan.new)?;
             f.format_index(&index_info, Action::Created)
         }
         AutoMigrateStep::RemoveIndex(index) => {
-            let index_info = extract_index_info(&**index, plan.old)?;
+            let index_info = extract_index_info(index, plan.old)?;
             f.format_index(&index_info, Action::Removed)
         }
         AutoMigrateStep::RemoveConstraint(constraint) => {
-            let constraint_info = extract_constraint_info(&**constraint, plan.old)?;
+            let constraint_info = extract_constraint_info(constraint, plan.old)?;
             f.format_constraint(&constraint_info, Action::Removed)
         }
         AutoMigrateStep::AddConstraint(constraint) => {
-            let constraint_info = extract_constraint_info(&**constraint, plan.new)?;
+            let constraint_info = extract_constraint_info(constraint, plan.new)?;
             f.format_constraint(&constraint_info, Action::Created)
         }
         AutoMigrateStep::AddSequence(sequence) => {
-            let sequence_info = extract_sequence_info(&**sequence, plan.new)?;
+            let sequence_info = extract_sequence_info(sequence, plan.new)?;
             f.format_sequence(&sequence_info, Action::Created)
         }
         AutoMigrateStep::RemoveSequence(sequence) => {
-            let sequence_info = extract_sequence_info(&**sequence, plan.old)?;
+            let sequence_info = extract_sequence_info(sequence, plan.old)?;
             f.format_sequence(&sequence_info, Action::Removed)
         }
         AutoMigrateStep::ChangeAccess(table) => {
-            let access_info = extract_access_change_info(&**table, plan)?;
+            let access_info = extract_access_change_info(table, plan)?;
             f.format_change_access(&access_info)
         }
         AutoMigrateStep::ChangePrimaryKey(table) => {
             let (_, _, old_table) =
                 plan.old
-                    .find_table_by_full_name(&**table)
+                    .find_table_by_full_name(table)
                     .ok_or_else(|| FormattingErrors::TableNotFound {
                         table: (&**table).into(),
                     })?;
             let (_, _, new_table) =
                 plan.new
-                    .find_table_by_full_name(&**table)
+                    .find_table_by_full_name(table)
                     .ok_or_else(|| FormattingErrors::TableNotFound {
                         table: (&**table).into(),
                     })?;
-            f.format_change_primary_key(&**table, old_table.primary_key, new_table.primary_key)
+            f.format_change_primary_key(table, old_table.primary_key, new_table.primary_key)
         }
         AutoMigrateStep::AddSchedule(schedule) => {
-            let schedule_info = extract_schedule_info(&**schedule, plan.new)?;
+            let schedule_info = extract_schedule_info(schedule, plan.new)?;
             f.format_schedule(&schedule_info, Action::Created)
         }
         AutoMigrateStep::RemoveSchedule(schedule) => {
-            let schedule_info = extract_schedule_info(&**schedule, plan.old)?;
+            let schedule_info = extract_schedule_info(schedule, plan.old)?;
             f.format_schedule(&schedule_info, Action::Removed)
         }
         AutoMigrateStep::AddRowLevelSecurity(rls) => {
@@ -112,14 +112,14 @@ fn format_step<F: MigrationFormatter>(
             Ok(())
         }
         AutoMigrateStep::ChangeColumns(table) => {
-            let column_changes = extract_column_changes(&**table, plan)?;
+            let column_changes = extract_column_changes(table, plan)?;
             f.format_change_columns(&column_changes)
         }
         AutoMigrateStep::AddColumns(table) => {
             // FIXME: It looks (pgoldman 2026-06-10) like `super::auto_migrate_table` will emit only `AddColumns`
             // in the case where a table has both new columns and changed columns.
             // As such, we probably need to call `extract_column_changes` here too.
-            let new_columns = extract_new_columns(&**table, plan)?;
+            let new_columns = extract_new_columns(table, plan)?;
             f.format_add_columns(&new_columns)
         }
         AutoMigrateStep::DisconnectAllUsers => f.format_disconnect_warning(),

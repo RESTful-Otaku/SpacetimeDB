@@ -11,8 +11,6 @@ vi.mock(
   { virtual: true }
 );
 
-vi.mock('spacetime:sys@2.1', () => ({}), { virtual: true });
-
 describe('ctx.as alias proxy', () => {
   let schema: typeof import('../src/server/schema').schema;
   let table: typeof import('../src/lib/table').table;
