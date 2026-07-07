@@ -333,10 +333,8 @@ fn auto_migrate_database(
                 stdb.drop_index(tx, index_schema.index_id)?;
             }
             spacetimedb_schema::auto_migrate::AutoMigrateStep::RemoveConstraint(constraint_name) => {
-                let (prefix, _owning_def, table_def, _constraint_def) = plan
-                    .old
-                    .find_constraint_by_full_name(&constraint_name)
-                    .ok_or_else(|| {
+                let (prefix, _owning_def, table_def, _constraint_def) =
+                    plan.old.find_constraint_by_full_name(&constraint_name).ok_or_else(|| {
                         anyhow::anyhow!("RemoveConstraint: constraint `{constraint_name}` not found in old module def")
                     })?;
                 let table_full_name = format!("{}{}", prefix, &*table_def.accessor_name);
@@ -356,10 +354,8 @@ fn auto_migrate_database(
                 stdb.drop_constraint(tx, constraint_schema.constraint_id)?;
             }
             spacetimedb_schema::auto_migrate::AutoMigrateStep::AddConstraint(constraint_name) => {
-                let (prefix, owning_def, table_def, constraint_def) = plan
-                    .new
-                    .find_constraint_by_full_name(&constraint_name)
-                    .ok_or_else(|| {
+                let (prefix, owning_def, table_def, constraint_def) =
+                    plan.new.find_constraint_by_full_name(&constraint_name).ok_or_else(|| {
                         anyhow::anyhow!("AddConstraint: constraint `{constraint_name}` not found in new module def")
                     })?;
                 let table_full_name = format!("{}{}", prefix, &*table_def.accessor_name);
