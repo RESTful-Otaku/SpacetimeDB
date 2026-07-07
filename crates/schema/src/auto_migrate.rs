@@ -218,7 +218,7 @@ pub struct AutoMigratePlan<'def> {
 
 impl AutoMigratePlan<'_> {
     fn any_step(&self, f: impl Fn(&AutoMigrateStep) -> bool) -> bool {
-        self.steps.iter().any(|step| f(step))
+        self.steps.iter().any(f)
     }
 
     fn disconnects_all_users(&self) -> bool {
@@ -530,7 +530,8 @@ fn auto_migrate_views(plan: &mut AutoMigratePlan<'_>) -> Result<()> {
         .map(|(prefix, owning, view)| (format!("{}{}", prefix, &*view.name), (owning, view)))
         .collect();
 
-    let mut maybe_change: Vec<(String, (&ModuleDef, &ViewDef), (&ModuleDef, &ViewDef))> = vec![];
+    type ViewEntry<'a> = (String, (&'a ModuleDef, &'a ViewDef), (&'a ModuleDef, &'a ViewDef));
+    let mut maybe_change: Vec<ViewEntry<'_>> = vec![];
     for (full_name, old_entry) in &old_views {
         match new_views.get(full_name.as_str()) {
             Some(new_entry) => maybe_change.push((full_name.clone(), *old_entry, *new_entry)),
@@ -716,7 +717,8 @@ fn auto_migrate_tables(plan: &mut AutoMigratePlan<'_>) -> Result<()> {
         }
     }
 
-    let maybe_change: Vec<(String, (&ModuleDef, &TableDef), (&ModuleDef, &TableDef))> = old_tables
+    type TableEntry<'a> = (String, (&'a ModuleDef, &'a TableDef), (&'a ModuleDef, &'a TableDef));
+    let maybe_change: Vec<TableEntry<'_>> = old_tables
         .iter()
         .filter_map(|(canonical, (_, old_owning, old_table))| {
             new_tables
@@ -1289,14 +1291,12 @@ fn auto_migrate_constraints(
 
     // Added constraints.
     for (full_constraint_name, (table_full_name, _new_constraint)) in &new_constraints {
-        if !old_constraints.contains_key(full_constraint_name.as_str()) {
-            if !new_tables.contains(table_full_name) {
-                // existing table — duplicate detection happens inside create_constraint
-                plan.steps
-                    .push(AutoMigrateStep::AddConstraint(NamespacedIdentifier::new_assume_valid(
-                        full_constraint_name.clone(),
-                    )));
-            }
+        if !old_constraints.contains_key(full_constraint_name.as_str()) && !new_tables.contains(table_full_name) {
+            // existing table — duplicate detection happens inside create_constraint
+            plan.steps
+                .push(AutoMigrateStep::AddConstraint(NamespacedIdentifier::new_assume_valid(
+                    full_constraint_name.clone(),
+                )));
             // it's okay to add a constraint in a new table — AddTable covers it.
         }
     }
@@ -1312,13 +1312,13 @@ fn auto_migrate_constraints(
 
     // Changed constraints.
     for (full_constraint_name, (_, new_constraint)) in &new_constraints {
-        if let Some((_, old_constraint)) = old_constraints.get(full_constraint_name.as_str()) {
-            if *old_constraint != *new_constraint {
-                results.push(Err(AutoMigrateError::ChangeUniqueConstraint {
-                    constraint: old_constraint.name.clone(),
-                }
-                .into()));
+        if let Some((_, old_constraint)) = old_constraints.get(full_constraint_name.as_str())
+            && *old_constraint != *new_constraint
+        {
+            results.push(Err(AutoMigrateError::ChangeUniqueConstraint {
+                constraint: old_constraint.name.clone(),
             }
+            .into()));
         }
     }
 
