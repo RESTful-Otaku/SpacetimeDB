@@ -9,6 +9,10 @@ smoketest = "ci smoketests --"
 smoketests = "smoketest"
 lint = "ci lint --"
 
+[target.x86_64-unknown-linux-gnu]
+# Allow V8's bundled libc++ and system libstdc++ to coexist without duplicate symbol errors.
+rustflags = ["--cfg", "tokio_unstable", "-C", "link-args=-Wl,--allow-multiple-definition"]
+
 [target.x86_64-pc-windows-msvc]
 # Use a different linker. Otherwise, the build fails with some obscure linker error that
 # seems to be a result of us producing a massive PDB file.
